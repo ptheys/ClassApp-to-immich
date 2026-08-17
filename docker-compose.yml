@@ -1,0 +1,15 @@
+services:
+  classapp-sync:
+    build: .
+    container_name: classapp-sync
+    env_file:
+      - .env
+    ports:
+      - "${NOVNC_PORT:-6080}:6080"
+    volumes:
+      - ./data:/data
+    # Mantém o container vivo em background; comandos são executados sob demanda com:
+    #   docker compose exec classapp-sync npm run login
+    #   docker compose exec classapp-sync npm run sync
+    tty: true
+    stdin_open: true
