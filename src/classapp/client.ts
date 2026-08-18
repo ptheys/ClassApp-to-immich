@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
 import { loadSession } from "./session.js";
-import type { StudentProfile, ClassAppMessageSummary, ClassAppAttachment } from "../types.js";
+import type { StudentProfile, ClassAppMessageSummary, ClassAppMessageDetail } from "../types.js";
 
 const CLASSAPP_GRAPHQL_URL = process.env.CLASSAPP_GRAPHQL_URL || "https://web.classapp.com.br/graphql";
 const CLASSAPP_LOCALE = process.env.CLASSAPP_LOCALE || "pt";
@@ -20,7 +20,7 @@ export interface ClassAppClient {
   listStudentProfiles(): Promise<StudentProfile[]>;
   /** Retorna mensagens de um aluno, mais recentes primeiro, parando ao cruzar `since`. */
   listMessagesSince(args: { profileId: string; since: Date | null }): Promise<ClassAppMessageSummary[]>;
-  listMessageImages(args: { profileId: string; messageId: string }): Promise<ClassAppAttachment[]>;
+  getMessageDetail(args: { profileId: string; messageId: string }): Promise<ClassAppMessageDetail>;
   downloadAttachment(attachmentUrl: string): Promise<Buffer>;
 }
 
@@ -147,12 +147,13 @@ export async function createClassAppClient(): Promise<ClassAppClient> {
       return messages;
     },
 
-    async listMessageImages({ profileId, messageId }) {
+    async getMessageDetail({ profileId, messageId }) {
       const query = `
-        query GetMessageImages($entityId: ID!, $messageId: ID!) {
+        query GetMessageDetail($entityId: ID!, $messageId: ID!) {
           node(id: $entityId) {
             ... on Entity {
               message(id: $messageId) {
+                content
                 images: medias(type: IMAGE, limit: 40) {
                   nodes { id: dbId original: uri(size: "w1280") mimetype origName }
                 }
@@ -164,12 +165,16 @@ export async function createClassAppClient(): Promise<ClassAppClient> {
       interface Result {
         node: {
           message: {
+            content: string | null;
             images: { nodes: Array<{ id: string; original: string; mimetype: string; origName: string }> };
           };
         };
       }
       const data = await graphql<Result>(query, { entityId: profileId, messageId });
-      return data.node.message.images.nodes.map((m) => ({ id: m.id, url: m.original, filename: m.origName }));
+      return {
+        content: data.node.message.content,
+        images: data.node.message.images.nodes.map((m) => ({ id: m.id, url: m.original, filename: m.origName })),
+      };
     },
 
     /** URLs de imagem são servidas por images.classapp.com.br (CDN separado do GraphQL) e não exigem autenticação. */

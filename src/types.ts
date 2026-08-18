@@ -22,6 +22,11 @@ export interface ClassAppMessageSummary {
   imagesCount: number;
 }
 
+export interface ClassAppMessageDetail {
+  content: string | null;
+  images: ClassAppAttachment[];
+}
+
 export interface ImportedAttachment {
   messageId: string;
   attachmentId: string;

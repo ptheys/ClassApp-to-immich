@@ -20,9 +20,19 @@ export async function loadState(): Promise<SyncState> {
   }
 }
 
-export async function saveState(state: SyncState): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2));
+let writeQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Salva o estado em disco. As escritas são serializadas (mesmo se chamadas
+ * concorrentemente por workers paralelos do sync) para nunca haver duas
+ * escritas simultâneas no mesmo arquivo.
+ */
+export function saveState(state: SyncState): Promise<void> {
+  writeQueue = writeQueue.then(async () => {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2));
+  });
+  return writeQueue;
 }
 
 export function isAttachmentImported(state: SyncState, attachmentId: string): boolean {

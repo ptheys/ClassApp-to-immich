@@ -83,3 +83,8 @@ export async function addTagToAsset(assetId: string, tagName: string): Promise<v
   const tagId = await ensureTag(tagName);
   await client.put(`/tags/${tagId}/assets`, { ids: [assetId] });
 }
+
+export async function setAssetDescription(assetId: string, description: string): Promise<void> {
+  const client = http();
+  await client.put(`/assets/${assetId}`, { description });
+}

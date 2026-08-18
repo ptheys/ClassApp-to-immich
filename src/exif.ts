@@ -9,12 +9,14 @@ import path from "node:path";
  * meio-dia (12:00, horário local) dessa data, e retorna o path do arquivo
  * temporário resultante (o chamador é responsável por apagá-lo depois).
  */
+let tmpFileCounter = 0;
+
 export async function stampBufferAtNoon(
   buffer: Buffer,
   messageDate: string | Date,
   filenameHint = "photo.jpg"
 ): Promise<string> {
-  const tmpPath = path.join(os.tmpdir(), `classapp-${Date.now()}-${filenameHint}`);
+  const tmpPath = path.join(os.tmpdir(), `classapp-${Date.now()}-${++tmpFileCounter}-${filenameHint}`);
   await fs.writeFile(tmpPath, buffer);
 
   const noon = formatAtNoon(messageDate);
