@@ -23,6 +23,7 @@ cp .env.example .env
 docker compose up -d --build                                    # sobe o container
 docker compose exec classapp-sync npm run login                  # login manual (só quando a sessão expirar)
 docker compose exec classapp-sync npm run sync                    # sincronização incremental
+docker compose exec classapp-sync npm run sync:full               # varredura completa do histórico (rede de segurança)
 docker compose exec classapp-sync npm run backfill-descriptions   # preenche descrição em fotos já importadas antes desse recurso existir (uso pontual)
 ```
 
@@ -31,3 +32,5 @@ Durante `npm run login`, acesse `http://localhost:6080` (noVNC) para controlar o
 `session.json` (token) e `state.json` (registro incremental) ficam em `./data`, montado do host — sobrevivem a rebuilds e restarts do container.
 
 O paralelismo do `npm run sync` é controlado por `SYNC_CONCURRENCY` no `.env` (padrão: 6).
+
+Cada `npm run sync` reexamina as mensagens dos últimos `SYNC_LOOKBACK_DAYS` dias antes do último sync (padrão: 30), para pegar fotos adicionadas depois em mensagens antigas — o ClassApp lista mensagens por data de criação, então uma edição não as traz de volta ao topo. Fotos já importadas são puladas pelo `attachmentId`, sem reenvio. Para edições mais antigas que essa janela, rode `npm run sync:full`.

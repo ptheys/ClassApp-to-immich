@@ -8,6 +8,7 @@
     "build": "tsc",
     "login": "node dist/cli.js login",
     "sync": "node dist/cli.js sync",
+    "sync:full": "node dist/cli.js sync --full",
     "backfill-descriptions": "node dist/cli.js backfill-descriptions"
   },
   "dependencies": {

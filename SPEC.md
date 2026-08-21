@@ -20,6 +20,7 @@ Tudo roda dentro de um container Docker (Node + Chromium), sem agendamento autom
 docker compose up -d                                # sobe o container (fica em background; idempotente)
 docker compose exec classapp-sync npm run login     # só quando a sessão expirar (veja seção 4)
 docker compose exec classapp-sync npm run sync       # sincronização incremental
+docker compose exec classapp-sync npm run sync:full  # varredura completa do histórico
 ```
 
 Durante `npm run login`, acesse `http://localhost:6080` (noVNC) para ver e controlar o Chromium que abre dentro do container e fazer o login manual (email/senha + código de confirmação por email, quando solicitado). O processo detecta o login automaticamente (sem precisar apertar Enter em lugar nenhum) assim que captura o token de acesso no tráfego de rede.
@@ -97,7 +98,7 @@ Estado persistido em `/data/state.json`, **salvo a cada foto importada com suces
 
 Fluxo de cada execução de `npm run sync`:
 
-1. Para cada filha, buscar mensagens desde `lastSyncAt` (com margem de 1 dia, para cobrir mensagens tardias). Se `lastSyncAt` é nulo (primeira execução), busca o histórico completo.
+1. Para cada filha, buscar mensagens desde `lastSyncAt` menos o *lookback* (`SYNC_LOOKBACK_DAYS`, padrão 30 dias). Se `lastSyncAt` é nulo (primeira execução) ou o sync foi chamado com `--full`, busca o histórico completo.
 2. Para mensagens com `imagesCount > 0`, buscar os anexos de imagem.
 3. Para cada anexo não presente em `importedAttachments`:
    - Baixar a foto.
@@ -106,6 +107,15 @@ Fluxo de cada execução de `npm run sync`:
    - Aplicar a tag em cascata `ClassApp/<PrimeiroNome>`.
    - Registrar no estado e salvar `state.json` imediatamente.
 4. Ao final, atualizar `lastSyncAt` e imprimir resumo (novas / já existentes / falhas).
+
+### Mensagens editadas depois de sincronizadas
+
+O ClassApp lista mensagens por data de criação, e a paginação para ao cruzar `since` — então uma mensagem antiga que recebe **fotos novas** depois não volta para o topo da lista. Duas defesas:
+
+- **Lookback** (`SYNC_LOOKBACK_DAYS`, padrão 30): toda execução reexamina as mensagens dos últimos N dias antes do último sync. O custo extra é apenas um `getMessageDetail` por mensagem com foto na janela — a deduplicação por `attachmentId` evita qualquer reenvio.
+- **`npm run sync:full`** (ou `npm run sync -- --full`): ignora `lastSyncAt` e varre o histórico completo. Rede de segurança para edições mais antigas que o lookback; pode ser rodado periodicamente.
+
+Nenhum dos dois atualiza a **descrição** de fotos já importadas quando o texto da mensagem muda — para isso existe `npm run backfill-descriptions`.
 
 Deduplicação primária é por `attachmentId` do ClassApp (local, via `state.json`); o `deviceAssetId` estável no Immich é uma segunda camada de proteção contra duplicatas caso o estado local seja perdido/reconstruído.
 

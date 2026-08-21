@@ -7,7 +7,16 @@ import { decodeHtmlEntities } from "../htmlEntities.js";
 import { runWithConcurrency } from "../pool.js";
 import type { ClassAppMessageSummary } from "../types.js";
 
-const SYNC_MARGIN_MS = 24 * 60 * 60 * 1000; // 1 dia de margem sobre o último sync
+const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * Quantos dias antes do último sync as mensagens são reexaminadas. Cobre
+ * mensagens antigas que receberam fotos novas depois de já terem sido
+ * sincronizadas (o ClassApp lista mensagens por data de criação, então uma
+ * edição não as "traz de volta" para o topo). O custo extra é só um
+ * getMessageDetail por mensagem com foto na janela — a deduplicação por
+ * attachmentId evita qualquer reenvio.
+ */
+const LOOKBACK_DAYS = Number(process.env.SYNC_LOOKBACK_DAYS) || 30;
 const TAG_PREFIX = process.env.IMMICH_TAG_PREFIX || "ClassApp";
 const CONCURRENCY = Number(process.env.SYNC_CONCURRENCY) || 6;
 
@@ -20,7 +29,7 @@ interface AttachmentTask {
   tagName: string;
 }
 
-export async function runSync(): Promise<void> {
+export async function runSync(options: { full?: boolean } = {}): Promise<void> {
   let classapp;
   try {
     classapp = await createClassAppClient();
@@ -34,9 +43,16 @@ export async function runSync(): Promise<void> {
   }
 
   const state = await loadState();
-  const since = state.lastSyncAt
-    ? new Date(new Date(state.lastSyncAt).getTime() - SYNC_MARGIN_MS)
-    : null;
+  const since =
+    options.full || !state.lastSyncAt
+      ? null
+      : new Date(new Date(state.lastSyncAt).getTime() - LOOKBACK_DAYS * DAY_MS);
+
+  console.log(
+    since
+      ? `Sincronizando mensagens a partir de ${since.toISOString()} (lookback de ${LOOKBACK_DAYS} dias sobre o último sync).`
+      : `Sincronizando o histórico completo de mensagens${options.full ? " (--full)" : ""}.`
+  );
 
   let imported = 0;
   let skipped = 0;

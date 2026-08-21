@@ -4,6 +4,7 @@ import { runSync } from "./sync/run.js";
 import { backfillDescriptions } from "./sync/backfillDescriptions.js";
 
 const command = process.argv[2];
+const flags = new Set(process.argv.slice(3));
 
 async function main(): Promise<void> {
   switch (command) {
@@ -11,13 +12,13 @@ async function main(): Promise<void> {
       await login();
       break;
     case "sync":
-      await runSync();
+      await runSync({ full: flags.has("--full") });
       break;
     case "backfill-descriptions":
       await backfillDescriptions();
       break;
     default:
-      console.error(`Uso: npm run login | npm run sync | npm run backfill-descriptions`);
+      console.error(`Uso: npm run login | npm run sync [-- --full] | npm run backfill-descriptions`);
       process.exit(1);
   }
 }
